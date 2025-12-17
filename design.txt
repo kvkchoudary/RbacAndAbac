@@ -1,0 +1,363 @@
+Perfect. You now have enough clarity and implementation depth to write a strong, defensible design document for MVP-1.
+Below is a ready-to-use design document structure, with well-worded content you can copy, adapt, or expand.
+
+I’ll keep it architecture-review friendly (clear reasoning, trade-offs, and scope boundaries).
+
+Design Document – Role & Rule Based Data Access Control (MVP-1)
+1. Problem Statement
+
+    Multiple client applications require access to a shared enterprise database.
+    However:
+
+    Database credentials must not be shared with client applications
+
+    Each client must access only authorized data
+
+    Access must be controlled at:
+
+    Table level
+
+    Column level
+
+    Row level
+
+    Authorization must be centrally managed
+
+    Security policies must be configurable without application redeployment
+
+    Additionally:
+
+    Clients authenticate via Apigee (OAuth2)
+
+    Clients send raw SQL queries
+
+    The system must prevent SQL injection
+
+    The solution must support SELECT, INSERT, UPDATE, DELETE
+
+    MVP-1 focuses on correctness and security, not performance optimization
+
+2. High-Level Requirements
+    Functional Requirements
+
+        Accept SQL queries from authenticated clients
+
+        Identify client using a Functional Identifier (FID)
+
+        Enforce access using:
+
+        Roles assigned to FIDs (RBAC)
+
+        Fine-grained rules and policies (ABAC)
+
+    Support:
+
+        Single-table operations
+
+        Multi-table SELECT with JOINs
+
+        Single-table INSERT / UPDATE / DELETE
+
+        Enforce row-level and column-level restrictions
+
+    Non-Functional Requirements
+
+    No database credentials shared with clients
+
+    Centralized authorization and policy management
+
+    SQL injection protection
+
+    Auditable and deterministic behavior
+
+    Easy future migration to Oracle security features
+
+3. Why Not Traditional Approaches
+Direct DB Access (Rejected)
+
+Credentials leak risk
+
+No centralized governance
+
+Hard to audit
+
+Inconsistent security enforcement
+
+Pure RBAC (Rejected)
+
+Cannot express row-level or column-level rules
+
+Leads to role explosion
+
+Application-Embedded SQL Filters (Rejected)
+
+Scattered security logic
+
+Hard to maintain and audit
+
+Risk of bypass
+
+4. Chosen Design Approach
+Hybrid RBAC + ABAC Model
+
+RBAC (Role-Based Access Control)
+
+FID → Roles
+
+Roles → Allowed actions on tables
+
+ABAC (Attribute-Based Access Control)
+
+Row-level rules
+
+Column-level rules
+
+Operation-specific policies
+
+This provides coarse-grained control with RBAC and fine-grained control with ABAC.
+
+5. Architecture Overview
+High-Level Flow
+Client Application
+     |
+     |  (OAuth2 via Apigee)
+     v
+API Gateway (Apigee)
+     |
+     |  FID + SQL
+     v
+Spring Boot Data Control API
+     |
+     |  Authorization & Enforcement
+     v
+Database (H2 for MVP, Oracle later)
+
+6. Core Components
+6.1 Query Controller
+
+Accepts request payload:
+
+fid
+
+sql
+
+Delegates processing to service layer
+
+6.2 SQL Parser Service
+
+Uses JSqlParser
+
+Parses SQL into an AST
+
+Determines:
+
+SQL operation type
+
+Tables involved
+
+Rejects unsupported SQL constructs
+
+Benefits
+
+Prevents SQL injection
+
+Enables deterministic query inspection
+
+Avoids string-based parsing
+
+6.3 Authorization Service
+
+Responsible for:
+
+Resolving roles for a given FID
+
+Validating:
+
+Table-level permissions
+
+Operation permissions
+
+Fetching row-level rules
+
+Enforcing mandatory constraints (e.g. WHERE for UPDATE/DELETE)
+
+6.4 Query Execution Service
+
+Orchestrates:
+
+SQL parsing
+
+Authorization checks
+
+Query enrichment
+
+Execution
+
+Injects row-level rules into SQL safely
+
+Executes only validated and enriched SQL
+
+7. Entitlement Model (Stored in DB)
+Key Tables
+
+FID
+
+ROLE
+
+FID_ROLE
+
+ROLE_TABLE_PERMISSION
+
+ROLE_COLUMN_PERMISSION
+
+ROLE_ROW_RULE
+
+Example Row Rule
+department = 'HR'
+
+
+These rules are:
+
+Data-driven
+
+Configurable without code changes
+
+Operation-specific (SELECT vs UPDATE)
+
+8. How Authorization Works (End-to-End)
+Step 1: Authentication
+
+OAuth2 handled by Apigee
+
+Request forwarded with trusted FID
+
+Step 2: Role Resolution
+
+System fetches roles assigned to FID
+
+Rejects request if no roles found
+
+Step 3: SQL Parsing
+
+SQL parsed into AST
+
+Operation type identified
+
+Step 4: Authorization
+
+Validate table access for operation
+
+Validate multi-table SELECT joins
+
+Enforce mandatory WHERE for UPDATE/DELETE
+
+Step 5: Row-Level Enforcement
+
+Fetch applicable row rules
+
+Enrich SQL with additional predicates
+
+Step 6: Execution
+
+Final SQL executed
+
+Results returned to client
+
+9. Supported SQL Operations (MVP-1)
+Operation	Support	Notes
+SELECT	✅	Multi-table JOIN allowed
+INSERT	✅	Single table only
+UPDATE	✅	Single table, WHERE required
+DELETE	✅	Single table, WHERE required
+10. Security Considerations
+SQL Injection Protection
+
+No raw string concatenation
+
+AST-based parsing and validation
+
+Strict grammar enforcement
+
+Least Privilege
+
+Default deny
+
+Explicit allow via roles and rules
+
+Blast Radius Control
+
+Row-level filtering ensures zero data leakage
+
+UPDATE/DELETE cannot affect unauthorized rows
+
+11. Advantages of This Design
+Security
+
+Strong isolation
+
+Centralized enforcement
+
+Injection-safe execution
+
+Flexibility
+
+Data-driven policies
+
+No code changes for entitlement updates
+
+Scalability
+
+Works across multiple client applications
+
+Stateless API design
+
+Future-Proof
+
+Clean migration path to:
+
+Oracle VPD / RLS
+
+Policy engines (OPA)
+
+Distributed databases
+
+12. Limitations & MVP-1 Scope
+
+No subqueries
+
+No multi-table UPDATE/DELETE
+
+No stored procedures
+
+No performance optimizations yet
+
+Column-level enforcement for DML is basic
+
+These are intentional constraints for MVP-1.
+
+13. Future Enhancements
+
+Column-level enforcement for INSERT/UPDATE
+
+Audit logging
+
+Query cost controls
+
+Oracle VPD/RLS integration
+
+Policy engine integration (OPA/XACML)
+
+14. Conclusion
+
+This design provides a secure, centralized, and extensible solution for controlled database access across multiple client applications.
+By combining RBAC for coarse authorization and ABAC for fine-grained data control, it meets enterprise security requirements while remaining flexible and maintainable.
+
+If you want next, I can:
+
+Convert this into a formal architecture diagram
+
+Rewrite it in corporate design-doc tone
+
+Add threat modeling section
+
+Add decision record (ADR)
