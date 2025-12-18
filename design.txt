@@ -1,3 +1,203 @@
+
+All examples assume:
+
+Endpoint: POST /query
+
+Authentication already handled by Apigee
+
+Payload contains FID + raw SQL
+
+📌 Common Request Format
+{
+  "fid": "HR_APP",
+  "sql": "<RAW_SQL_HERE>"
+}
+
+1️⃣ SELECT — Single Table
+Use case
+
+Client wants to read employee data.
+
+Request
+{
+  "fid": "HR_APP",
+  "sql": "SELECT emp_id, name FROM EMPLOYEE"
+}
+
+What happens internally
+
+Table access checked → EMPLOYEE ✔
+
+Column access checked → emp_id, name ✔
+
+Row rule enforced → department = 'HR'
+
+Final executed SQL
+SELECT emp_id, name
+FROM EMPLOYEE
+WHERE department = 'HR'
+
+2️⃣ SELECT — Multiple Tables (JOIN)
+Use case
+
+Client wants employee + department data.
+
+Request
+{
+  "fid": "HR_APP",
+  "sql": "SELECT e.emp_id, e.name, d.dept_name FROM EMPLOYEE e JOIN DEPARTMENT d ON e.dept_id = d.dept_id"
+}
+
+What happens internally
+
+EMPLOYEE SELECT ✔
+
+DEPARTMENT SELECT ✔
+
+EMPLOYEE row rule → department = 'HR'
+
+DEPARTMENT row rule → region = 'US'
+
+Final executed SQL
+SELECT e.emp_id, e.name, d.dept_name
+FROM EMPLOYEE e
+JOIN DEPARTMENT d ON e.dept_id = d.dept_id
+WHERE e.department = 'HR'
+  AND d.region = 'US'
+
+3️⃣ INSERT — Single Table
+Use case
+
+Client wants to insert a new HR employee.
+
+Request
+{
+  "fid": "HR_APP",
+  "sql": "INSERT INTO EMPLOYEE (emp_id, name, department, salary, dept_id) VALUES (3, 'Carol', 'HR', 5500, 10)"
+}
+
+Authorization checks
+
+INSERT on EMPLOYEE ✔
+
+Allowed columns ✔
+
+No INSERT-SELECT ✔
+
+Final executed SQL
+INSERT INTO EMPLOYEE (emp_id, name, department, salary, dept_id)
+VALUES (3, 'Carol', 'HR', 5500, 10)
+
+
+⚠️ Note: In MVP, row rules are not auto-added for INSERT.
+You enforce this via:
+
+Mandatory column restrictions
+
+Optional future validation of inserted values
+
+4️⃣ UPDATE — Single Table (REQUIRED WHERE)
+Use case
+
+Client updates salary for HR employee.
+
+Request
+{
+  "fid": "HR_APP",
+  "sql": "UPDATE EMPLOYEE SET salary = 6000 WHERE emp_id = 1"
+}
+
+What happens internally
+
+UPDATE permission ✔
+
+WHERE clause exists ✔
+
+Column allowed ✔
+
+Row rule applied → department = 'HR'
+
+Final executed SQL
+UPDATE EMPLOYEE
+SET salary = 6000
+WHERE emp_id = 1
+  AND department = 'HR'
+
+
+✔ If emp_id = 1 is not HR → update affects 0 rows
+
+5️⃣ DELETE — Single Table (REQUIRED WHERE)
+Use case
+
+Client deletes an HR employee record.
+
+Request
+{
+  "fid": "HR_APP",
+  "sql": "DELETE FROM EMPLOYEE WHERE emp_id = 3"
+}
+
+What happens internally
+
+DELETE permission ✔
+
+WHERE clause exists ✔
+
+Row rule enforced → department = 'HR'
+
+Final executed SQL
+DELETE FROM EMPLOYEE
+WHERE emp_id = 3
+  AND department = 'HR'
+
+🚫 Examples That Will Be Rejected
+❌ Unauthorized table
+{
+  "fid": "HR_APP",
+  "sql": "SELECT * FROM SYS.USER$"
+}
+
+❌ UPDATE without WHERE
+{
+  "fid": "HR_APP",
+  "sql": "UPDATE EMPLOYEE SET salary = 9000"
+}
+
+❌ Unauthorized column
+{
+  "fid": "HR_APP",
+  "sql": "SELECT salary FROM EMPLOYEE"
+}
+
+❌ JOIN with unauthorized table
+{
+  "fid": "HR_APP",
+  "sql": "SELECT * FROM EMPLOYEE e JOIN PAYROLL p ON e.emp_id = p.emp_id"
+}
+
+✅ Summary Table
+SQL Type	Supported	Notes
+SELECT (1 table)	✅	Row + column rules
+SELECT (JOIN)	✅	Rules per table
+INSERT	✅	Column enforcement
+UPDATE	✅	WHERE + row rules
+DELETE	✅	WHERE + row rules
+
+If you want, next we can:
+
+Add column-level enforcement code
+
+Add INSERT row-rule validation
+
+Write JUnit test cases
+
+Lock SQL grammar even further (production hardening)
+
+Just say the word 👍
+
+
+
+*************************************************************************************************************
 Perfect. You now have enough clarity and implementation depth to write a strong, defensible design document for MVP-1.
 Below is a ready-to-use design document structure, with well-worded content you can copy, adapt, or expand.
 
@@ -361,3 +561,5 @@ Rewrite it in corporate design-doc tone
 Add threat modeling section
 
 Add decision record (ADR)
+
+******************************************************************************************************
