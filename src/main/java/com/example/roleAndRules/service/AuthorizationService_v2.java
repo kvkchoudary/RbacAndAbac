@@ -4,7 +4,7 @@ package com.example.roleAndRules.service;
 import java.util.List;
 import java.util.Map;
 
-public class AuthorizationService {
+public class AuthorizationService_v2 {
 
     // Check if FID has roles for table-level access
     public void checkTableAccess(String fid, List<String> roles, String table, String operation) {

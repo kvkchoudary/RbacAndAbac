@@ -12,7 +12,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import java.util.List;
 import java.util.Map;
 
-public class QueryExecutionService {
+public class QueryExecutionService_v2 {
 
     private final SqlParserService sqlParserService;
     private final AuthorizationService authorizationService;

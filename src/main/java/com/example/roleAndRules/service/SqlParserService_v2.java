@@ -1,6 +1,4 @@
 package com.example.roleAndRules.service;
-
-
 import net.sf.jsqlparser.JSQLParserException;
 import net.sf.jsqlparser.parser.CCJSqlParserUtil;
 import net.sf.jsqlparser.statement.Statement;
@@ -20,7 +18,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class SqlParserService {
+public class SqlParserService_v2 {
 
     // Parse SQL string into AST Statement
     public Statement parse(String sql) throws JSQLParserException {
